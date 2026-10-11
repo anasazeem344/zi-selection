@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Zi's Selection: website + admin
 
-## Getting Started
+A fast, light online shop and a simple admin panel for Zi's Selection. Customers browse, build a bag, and
+send it to you on **WhatsApp or Instagram**. You manage products, photos, orders and content in `/admin`.
 
-First, run the development server:
+Built with Next.js (App Router, static pages), Tailwind CSS and Supabase (database, login, photo storage).
+
+## Run it now (sample mode)
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+With no Supabase keys the shop runs read-only with **sample products** (no photos, "price on request").
+`/admin` shows a setup notice until Supabase is connected.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Connect Supabase (10 minutes, free tier is enough)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Create a project at <https://supabase.com>.
+2. **SQL Editor**: run `supabase/schema.sql`, then `supabase/seed.sql`.
+3. Copy `.env.example` to `.env.local` and fill in the keys from **Project Settings → API**.
+   Keep `SUPABASE_SERVICE_ROLE_KEY` secret (server only).
+4. **Authentication → Users → Add user**: create your login (email + password).
+5. Make yourself the owner, in the SQL editor:
+   ```sql
+   insert into public.admins (user_id, role)
+   select id, 'owner' from auth.users where email = 'YOUR-EMAIL-HERE';
+   ```
+   Add staff the same way with `'staff'`. Staff can manage products, orders and reviews. Only the owner can
+   change settings and pages, delete things, or see those screens.
+6. Restart `npm run dev`, open `/admin`, sign in.
 
-## Learn More
+## First things to do in the admin
 
-To learn more about Next.js, take a look at the following resources:
+1. **Settings**: add your WhatsApp number (or leave empty to use Instagram only), hours, announcement.
+2. **Products**: upload your real photos, set names, prices and ring-size stock. Delete or edit the samples.
+3. **Pages**: write Shipping & Returns, Jewelry Care, Size Guide and FAQ **in your own words** and publish them.
+   Nothing is invented for you: unpublished pages don't appear on the site.
+4. **Reviews**: add only real customer comments (with permission).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## How ordering works
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- The customer adds pieces to the bag and taps **Order on WhatsApp** (or Instagram). The message is pre-filled.
+- The site also records the enquiry as a **New order** in the admin (prices are re-read from the database).
+- You confirm price, delivery and payment in the chat, then update the order status.
+- Instagram can't pre-fill DMs, so the list is copied to the clipboard for the customer to paste.
 
-## Deploy on Vercel
+## Why it's fast
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Storefront pages are **pre-rendered static HTML** served from cache; admin edits refresh them instantly
+  (`updateTag`). Visitors never wait for the database.
+- Photos are resized and compressed **in the browser before upload** (WebP, max 1600 px), then served through
+  `next/image` (AVIF/WebP, responsive sizes, lazy loading).
+- Two self-hosted fonts, no third-party scripts, no tracking, no UI library.
+- The bag, wishlist and menu are the only client-side JavaScript on the storefront.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deploy
+
+Vercel works out of the box: import the repo, add the four environment variables from `.env.example`, deploy.
+Set `NEXT_PUBLIC_SITE_URL` to your real domain. Any Node host works with `npm run build && npm start`.
+
+## Security notes
+
+- The browser can only read **published** products, categories, pages, reviews and settings (row level security).
+- Orders can't be read or written from the browser at all. Only signed-in admins (and the server) can.
+- Every admin page and action re-checks the signed-in user and role on the server.
+- The "send order" action is public by design. If you ever see spam orders, add rate limiting (e.g. Vercel
+  firewall) or a captcha.
+
+## Not included yet
+
+Online card/JazzCash/Easypaisa payment, automatic stock deduction, discount codes, email notifications,
+customer accounts, multi-language. All can be added later; the data model leaves room for them.
